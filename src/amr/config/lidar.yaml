@@ -1,0 +1,38 @@
+# lidar.yaml
+# ═══════════════════════════════════════════════════════════════════
+# 2D LiDAR Sensor Parameters
+# These values match the sensor defined in sensors.xacro (gpu_lidar).
+# Used as reference for real-robot (hardware) LiDAR driver configuration.
+# ═══════════════════════════════════════════════════════════════════
+
+lidar:
+  # ── Identity ─────────────────────────────────────────────────
+  frame_id: "lidar_link"          # MUST match gz_frame_id in sensors.xacro
+  topic: "/scan"                  # Published topic name
+
+  # ── Scan geometry ─────────────────────────────────────────────
+  scan_samples: 720               # Rays per full rotation
+  angle_min: 0.0                  # rad — start of scan (0 = forward)
+  angle_max: 6.28318530718        # rad — end of scan (2π = full circle)
+  angle_increment: 0.00872664     # rad — 2π / 720
+
+  # ── Range ─────────────────────────────────────────────────────
+  range_min: 0.10                 # metres — blind zone below this
+  range_max: 12.0                 # metres — maximum detection distance
+
+  # ── Update rate ───────────────────────────────────────────────
+  update_rate: 10.0               # Hz
+
+  # ── Noise model (Gaussian) ────────────────────────────────────
+  noise_type: "gaussian"
+  noise_mean: 0.0
+  noise_stddev: 0.01              # metres
+
+  # ── Mount offset from base_link ───────────────────────────────
+  # Matches lidar_joint origin in amr.urdf.xacro
+  mount_x: 0.0                   # metres (centred on robot)
+  mount_y: 0.0
+  mount_z: 0.22                  # metres above base_link (0.28 from ground)
+  mount_roll:  0.0
+  mount_pitch: 0.0
+  mount_yaw:   0.0

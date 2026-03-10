@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<!--
+  sensors.xacro
+  Defines the 2D LiDAR sensor for Gazebo Harmonic (gpu_lidar).
+
+  Design rules:
+  • The sensor is attached to   lidar_link, which is a direct child of base_link.
+  • gz_frame_id is set to lidar_link so that scan data is in the correct frame.
+  • The Gazebo topic "/scan" is bridged to ROS2 "/scan" via ros_gz_bridge.
+  • 360° scan, 720 samples, 12 m max range.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="sensors">
+
+  <xacro:macro name="lidar_sensor">
+    <!--
+      Gazebo Harmonic GPU LiDAR sensor block.
+      Needs gz-sim-sensors-system loaded in the world (warehouse.world).
+    -->
+    <gazebo reference="lidar_link">
+      <sensor name="lidar_sensor" type="gpu_lidar">
+        <!-- Sensor pose relative to lidar_link — no additional offset needed -->
+        <pose>0 0 0 0 0 0</pose>
+
+        <!-- ROS bridge will subscribe to this Gz topic -->
+        <topic>/scan</topic>
+
+        <!-- Publish at 10 Hz — sufficient for navigation -->
+        <update_rate>10.0</update_rate>
+
+        <!-- CRITICAL: ties Gz scan data to the correct ROS TF frame -->
+        <gz_frame_id>lidar_link</gz_frame_id>
+
+        <lidar>
+          <scan>
+            <horizontal>
+              <!-- 720 samples over full 360° (0 to 2π) -->
+              <samples>720</samples>
+              <resolution>1</resolution>
+              <min_angle>0.0</min_angle>
+              <max_angle>6.28318530718</max_angle>
+            </horizontal>
+            <!-- 2D scanner — single vertical plane -->
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0.0</min_angle>
+              <max_angle>0.0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <!-- Minimum detection distance (blind zone) -->
+            <min>0.10</min>
+            <!-- Maximum rated range = 12 m -->
+            <max>12.0</max>
+            <!-- Range resolution -->
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </lidar>
+
+        <!-- Show scan rays in Gazebo GUI -->
+        <visualize>true</visualize>
+        <always_on>true</always_on>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,382 @@
+<?xml version="1.0"?>
+<!--
+  amr.urdf.xacro
+  ═══════════════════════════════════════════════════════════════════
+  2WD Autonomous Mobile Robot — ROS2 Jazzy + Gazebo Harmonic
+
+  Wheel Configuration:
+    REAR:  2 drive wheels (left/right) at x = -0.14
+    FRONT: 2 caster wheels (left/right) at x = +0.175, y = ±0.10
+           1 caster wheel (center)      at x = +0.22,  y = 0
+
+  TF tree:
+    odom → base_footprint → base_link
+                               ├── left_wheel_link      (rear-left drive)
+                               ├── right_wheel_link     (rear-right drive)
+                               ├── caster_front_left_link
+                               ├── caster_front_right_link
+                               ├── caster_center_link
+                               └── lidar_link
+  ═══════════════════════════════════════════════════════════════════
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="amr">
+
+  <xacro:include filename="$(find amr)/description/materials.xacro"/>
+  <xacro:include filename="$(find amr)/description/sensors.xacro"/>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PARAMETERS
+       ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Chassis -->
+  <xacro:property name="base_length"      value="0.52"/>
+  <xacro:property name="base_width"       value="0.42"/>
+  <xacro:property name="base_height"      value="0.11"/>
+  <xacro:property name="base_mass"        value="11.0"/>
+
+  <!-- Visual body width: narrower so wheels are visible -->
+  <xacro:property name="body_width"       value="0.28"/>
+
+  <!-- Drive wheels — placed at REAR of robot -->
+  <xacro:property name="wheel_radius"     value="0.06"/>
+  <xacro:property name="wheel_width"      value="0.035"/>
+  <xacro:property name="wheel_separation" value="0.32"/>
+  <xacro:property name="wheel_mass"       value="1.0"/>
+  <xacro:property name="wheel_x_offset"   value="-0.14"/>
+
+  <!-- Caster wheels -->
+  <xacro:property name="caster_radius"    value="0.02"/>
+  <xacro:property name="caster_mass"      value="0.3"/>
+  <xacro:property name="caster_z"         value="${caster_radius - wheel_radius}"/>
+
+  <!-- Front casters (pair) position -->
+  <xacro:property name="caster_front_x"   value="0.175"/>
+  <xacro:property name="caster_front_y"   value="0.10"/>
+
+  <!-- Center caster (single, slightly ahead of front pair) -->
+  <xacro:property name="caster_center_x"  value="0.22"/>
+
+  <!-- LiDAR -->
+  <xacro:property name="lidar_mass"       value="0.4"/>
+  <xacro:property name="lidar_radius"     value="0.035"/>
+  <xacro:property name="lidar_height"     value="0.04"/>
+  <xacro:property name="post_radius"      value="0.015"/>
+  <!-- LiDAR centre height from base_link origin -->
+  <xacro:property name="lidar_z"          value="0.20"/>
+  <xacro:property name="post_bottom"      value="${base_height}"/>
+  <xacro:property name="post_top"         value="${lidar_z - lidar_height/2}"/>
+  <xacro:property name="post_length"      value="${post_top - post_bottom}"/>
+  <xacro:property name="post_centre_z"    value="${(post_bottom + post_top) / 2}"/>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       INERTIA MACROS
+       ══════════════════════════════════════════════════════════════ -->
+
+  <xacro:macro name="inertia_box" params="m x y z">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia
+        ixx="${m/12.0*(y*y+z*z)}" ixy="0" ixz="0"
+        iyy="${m/12.0*(x*x+z*z)}" iyz="0"
+        izz="${m/12.0*(x*x+y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="inertia_cylinder" params="m r h">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia
+        ixx="${m/12.0*(3*r*r+h*h)}" ixy="0" ixz="0"
+        iyy="${m/12.0*(3*r*r+h*h)}" iyz="0"
+        izz="${m/2.0*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="inertia_sphere" params="m r">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia
+        ixx="${2.0/5.0*m*r*r}" ixy="0" ixz="0"
+        iyy="${2.0/5.0*m*r*r}" iyz="0"
+        izz="${2.0/5.0*m*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       LINKS
+       ══════════════════════════════════════════════════════════════ -->
+
+  <!-- Ground projection frame (no geometry) -->
+  <link name="base_footprint"/>
+
+  <!-- ── Main chassis ────────────────────────────────────────── -->
+  <link name="base_link">
+    <xacro:inertia_box m="${base_mass}" x="${base_length}" y="${base_width}" z="${base_height}"/>
+
+    <!-- Lower body — main chassis plate, sits ON TOP of wheels -->
+    <visual name="lower_body">
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${body_width} ${base_height}"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+
+    <!-- Left side skirt -->
+    <visual name="skirt_left">
+      <origin xyz="0 ${body_width/2 + 0.025} ${base_height*0.6}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length*0.85} 0.04 ${base_height*0.5}"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+
+    <!-- Right side skirt -->
+    <visual name="skirt_right">
+      <origin xyz="0 ${-(body_width/2 + 0.025)} ${base_height*0.6}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length*0.85} 0.04 ${base_height*0.5}"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+
+    <!-- Top accent strip (orange industrial highlight) -->
+    <visual name="top_accent">
+      <origin xyz="0 0 ${base_height + 0.003}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length*0.95} ${body_width*0.95} 0.005"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
+
+    <!-- Front indicator panel (orange) -->
+    <visual name="front_panel">
+      <origin xyz="${base_length/2 - 0.005} 0 ${base_height*0.65}" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 ${body_width*0.4} ${base_height*0.3}"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
+
+    <!-- Rear indicator panel (yellow) -->
+    <visual name="rear_panel">
+      <origin xyz="${-base_length/2 + 0.005} 0 ${base_height*0.65}" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.01 ${body_width*0.4} ${base_height*0.3}"/>
+      </geometry>
+      <material name="yellow"/>
+    </visual>
+
+    <!-- LiDAR mount post -->
+    <visual name="lidar_post">
+      <origin xyz="0.08 0 ${post_centre_z}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${post_radius}" length="${post_length}"/>
+      </geometry>
+      <material name="grey"/>
+    </visual>
+
+    <!-- Collision: full-size box -->
+    <collision name="base_collision">
+      <origin xyz="0 0 ${base_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ── Drive wheel macro (rear wheels) ─────────────────────── -->
+  <xacro:macro name="drive_wheel" params="prefix y_offset">
+    <link name="${prefix}_wheel_link">
+      <xacro:inertia_cylinder m="${wheel_mass}" r="${wheel_radius}" h="${wheel_width}"/>
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+      <!-- Hub detail -->
+      <visual name="hub">
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius*0.4}" length="${wheel_width+0.002}"/>
+        </geometry>
+        <material name="grey"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="${wheel_x_offset} ${y_offset} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.1" friction="0.1"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Instantiate rear drive wheels -->
+  <xacro:drive_wheel prefix="left"  y_offset="${wheel_separation/2}"/>
+  <xacro:drive_wheel prefix="right" y_offset="${-wheel_separation/2}"/>
+
+  <!-- ── Caster wheel macro ──────────────────────────────────── -->
+  <xacro:macro name="caster_wheel" params="name x_pos y_pos">
+    <link name="${name}_link">
+      <xacro:inertia_sphere m="${caster_mass}" r="${caster_radius}"/>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="${caster_radius}"/>
+        </geometry>
+        <material name="light_grey"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <sphere radius="${caster_radius}"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}_link"/>
+      <origin xyz="${x_pos} ${y_pos} ${caster_z}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Instantiate 3 front caster wheels -->
+  <xacro:caster_wheel name="caster_front_left"  x_pos="${caster_front_x}"  y_pos="${caster_front_y}"/>
+  <xacro:caster_wheel name="caster_front_right" x_pos="${caster_front_x}"  y_pos="${-caster_front_y}"/>
+  <xacro:caster_wheel name="caster_center"      x_pos="${caster_center_x}" y_pos="0"/>
+
+  <!-- ── LiDAR ───────────────────────────────────────────────── -->
+  <link name="lidar_link">
+    <xacro:inertia_cylinder m="${lidar_mass}" r="${lidar_radius}" h="${lidar_height}"/>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <visual name="lidar_dome">
+      <origin xyz="0 0 ${lidar_height/2}" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="${lidar_radius*0.6}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_height}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       JOINTS
+       ══════════════════════════════════════════════════════════════ -->
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- LiDAR mounted front-centre on top of post -->
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="lidar_link"/>
+    <origin xyz="0.08 0 ${lidar_z}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       GAZEBO HARMONIC PLUGINS
+       ══════════════════════════════════════════════════════════════ -->
+
+  <gazebo>
+    <plugin filename="gz-sim-diff-drive-system"
+            name="gz::sim::systems::DiffDrive">
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+
+      <wheel_separation>${wheel_separation}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+
+      <!-- CRITICAL: odom → base_footprint, NOT base_link!
+           robot_state_publisher owns base_footprint → base_link.
+           This prevents the dual-parent TF conflict. -->
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <tf_topic>/tf</tf_topic>
+
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>false</publish_wheel_tf>
+
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <max_linear_acceleration>0.5</max_linear_acceleration>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+      <joint_name>left_wheel_joint</joint_name>
+      <joint_name>right_wheel_joint</joint_name>
+    </plugin>
+  </gazebo>
+
+  <!-- Wheel friction (rubber on tile μ=0.6) -->
+  <gazebo reference="left_wheel_link">
+    <mu1>0.6</mu1>  <mu2>0.6</mu2>
+    <kp>1e6</kp>    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+    <maxVel>1.0</maxVel>
+  </gazebo>
+  <gazebo reference="right_wheel_link">
+    <mu1>0.6</mu1>  <mu2>0.6</mu2>
+    <kp>1e6</kp>    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+    <maxVel>1.0</maxVel>
+  </gazebo>
+
+  <!-- Caster friction = 0 (free rolling) -->
+  <gazebo reference="caster_front_left_link">
+    <mu1>0.0</mu1>  <mu2>0.0</mu2>
+    <kp>1e6</kp>    <kd>100.0</kd>
+  </gazebo>
+  <gazebo reference="caster_front_right_link">
+    <mu1>0.0</mu1>  <mu2>0.0</mu2>
+    <kp>1e6</kp>    <kd>100.0</kd>
+  </gazebo>
+  <gazebo reference="caster_center_link">
+    <mu1>0.0</mu1>  <mu2>0.0</mu2>
+    <kp>1e6</kp>    <kd>100.0</kd>
+  </gazebo>
+
+  <!-- Gazebo material colours -->
+  <xacro:gz_material_chassis link="base_link"/>
+  <xacro:gz_material_wheel   link="left_wheel_link"/>
+  <xacro:gz_material_wheel   link="right_wheel_link"/>
+  <xacro:gz_material_caster  link="caster_front_left_link"/>
+  <xacro:gz_material_caster  link="caster_front_right_link"/>
+  <xacro:gz_material_caster  link="caster_center_link"/>
+  <xacro:gz_material_lidar   link="lidar_link"/>
+
+  <!-- LiDAR sensor -->
+  <xacro:lidar_sensor/>
+
+</robot>
